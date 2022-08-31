@@ -30,8 +30,10 @@ def make_slices(coords, size):
     creates quadratic slices at the coordinates of +- size
     can slice both xy images and txy stacks
     returns a list of slices
+
     TODO: to be generalized towards non-rectangular shapes
     """
+
     slices = []
     for (x,y) in coords:
         s = np.s_[...,x-size:x+size, y-size:y+size]
@@ -107,9 +109,12 @@ def get_tstamps_for_frames(fname):
     reader = imread(fname)
     n_frames = get_n_frames(fname)
     t_stamps = np.zeros(n_frames)
+
     for i in range(n_frames):
+        # the parser
         t  = np.float32(reader.description(i).split('\n')[3].split(' = ')[1])
         t_stamps[i] = t
+
     return t_stamps
 
 def get_meta(fname):
@@ -145,7 +150,8 @@ def read_float_from_meta(meta_si, key):
             return float(line.split(' = ')[1])
 
 def get_data(fname, meta=True):
-    """ read data and metadata from ScanImage tif """
+    """ read data (and metadata) from ScanImage tif """
+
     fname = Path(fname)
     reader = imread(str(fname)) # amazing - this librarty needs str
     Data = reader.data()
@@ -198,7 +204,7 @@ def split_mROIs(fname):
     # calculating the number of lines to discard
     n_drop = flyToTime / linePeriod
     n_drop = int(np.ceil(n_drop))
-    if n_drop % 2 == 1: # think again about this part
+    if n_drop % 2 == 1: # think again about this part - why would we need to require an even number of dropped lines?
         n_drop = n_drop + 1
 
     n_frames = get_n_frames(fname)
@@ -223,7 +229,10 @@ def split_mROIs(fname):
 
 def split_and_save_mROIs(fname):
     """ splits a multiROI scan into individual files.
-    WARNING - this writes a new tiff without the SI metadata """
+    WARNING - this writes a new tiff without the SI metadata
+    TODO make this function store the metadata
+    TODO double check: verify pixel value equivalence
+    """
 
     fname = Path(fname)
     mROI_data, meta = split_mROIs(fname)

@@ -7,21 +7,20 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import tifffile
 
-os.chdir("/home/georg/code/twoplib") # local hack - to be removed
 import twoplib
 
 from caiman.source_extraction.cnmf import cnmf as cnmf
 
-def get_footprints(cnmf2):
+def get_footprints(cnmf):
     """ 
     getting the spatial footprints from a cnmf obj
-    reshape cnmf2.estimates.A into image format 
+    reshape cnmf.estimates.A into image format 
 
     returns array of shape n_comps, xpx, ypx
     """
-    A = cnmf2.estimates.A
+    A = cnmf.estimates.A
     n_comps = A.shape[1]
-    xpx, ypx = cnmf2.dims
+    xpx, ypx = cnmf.dims
     F = np.zeros((n_comps, ypx, xpx))
     for i in range(A.shape[1]):
         F[i,:,:] = A[:,i].reshape(ypx,xpx).toarray()
@@ -29,9 +28,11 @@ def get_footprints(cnmf2):
     F = F.swapaxes(1,2) # weird
     return F
 
-# make coords from footprints
+
 def calc_coords_from_footprints(F):
-    """ center of gravity """
+    """ defines a central coordinate for each spatial  footprint.
+    currently: center of gravity """
+
     coords = []
     for i,f in enumerate(F):
         y = np.argmin((np.cumsum(np.sum(f,axis=0)) / np.cumsum(np.sum(f,axis=0))[-1] - 0.5)**2)
@@ -40,10 +41,10 @@ def calc_coords_from_footprints(F):
     return coords
 
 def filter_by_border_dist(F, coords=None, min_dist=8):
-    """ declare a footprint to be bad if it's coordinate is too close to
+    """ footprint is bad if it's coordinate is too close to
     the border
 
-    min_dist can be 1x soma diamter
+    min_dist is in pixels, makes sense to set it to 1x soma diameter
 
     TODO operate on coords or footprints? 
     pro coords: it's an operation on coords
@@ -62,8 +63,12 @@ def filter_by_border_dist(F, coords=None, min_dist=8):
             good_inds[i] = False
     return good_inds
     
+
 # metrics to evaluate footprints
-def compactness(F, size=5, thresh=1.5):
+# TODO unify  - either pass optional coords arg for these metrics
+# or remove it for the filter_by ... 
+
+def compactness(F, size, thresh):
     """ calculates the ratio of signal inside / outside 
     of a bounding box at the size of the soma """
     coords = calc_coords_from_footprints(F)
@@ -81,7 +86,8 @@ def compactness(F, size=5, thresh=1.5):
     print("good/bad: %i/%i" % (np.sum(good_inds),good_inds.shape[0]))
     return good_inds, ratios
 
-def fwhm(F, size, thresh=8):
+def fwhm(F, size, thresh):
+    """ full width half maximum, in pixels """
     coords = calc_coords_from_footprints(F)
     slices = twoplib.make_slices(coords, size)
 
@@ -99,7 +105,10 @@ def fwhm(F, size, thresh=8):
     good_inds = np.array(sds) < thresh
     return good_inds, sds
 
+
 def plot_footprints(Image, F, save=None):
+    """ plotting helper, footprints over image
+    save is optional path to which image is saved """
 
     fig, axes = plt.subplots()
 
@@ -121,7 +130,7 @@ def plot_footprints(Image, F, save=None):
     np.random.shuffle(ix)
     for i in ix:
         roi_mask[np.where(F[ix[i],:,:] > 0.05)] = i
-    axes.matshow(roi_mask,vmin=0,vmax=F.shape[0],cmap='turbo', alpha=0.9)
+    axes.matshow(roi_mask, vmin=0, vmax=F.shape[0], cmap='turbo', alpha=0.9)
 
     axes.set_xticks([])
     axes.set_yticks([])
@@ -134,7 +143,11 @@ def plot_footprints(Image, F, save=None):
     return axes
 
 def plot_footprints_eval(Fs, good_inds, save=None):
-    """ plot result of footprint evaluation """
+    """ plot result of footprint evaluation, footprints
+    on a grid
+
+    save is optional path to which image is saved """
+
     nrows = np.ceil(np.sqrt(len(Fs))).astype('int32')
     Z = twoplib.tile_slices(Fs, nrows=nrows)
     size = Fs[0].shape[1] # safe for both xy and txy
